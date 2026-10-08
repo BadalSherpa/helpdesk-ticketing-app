@@ -1,5 +1,6 @@
 const express = require('express');
 const cors = require('cors');
+
 //port configuration
 const PORT = process.env.PORT || 5000;
 
@@ -41,16 +42,27 @@ app.get('/api/tickets',(req,res)=>{
     statusFilteredTickets = statusFilteredTickets.filter(ticket => ticket.status?.toLocaleLowerCase() === status);
   }
 
-
   // server side sorting
-
   const sortBy = req.query.sortBy?.trim() || 'createdAt';
   const sortOrder = req.query.sortOrder?.trim().toLowerCase() || 'asc';
 
-  const sortingALlowedFields = ['id', 'subject', 'status', 'createdAt', 'updatedAt'];
+  if(sortOrder!=="asc" && sortOrder !=="desc"){
+    return res.status(400).json({
+      error: "Sortorder must be either asc or desc"
+    })  
+  }
+
+  const sortingAllowedFields = ['id', 'subject', 'description', 'priority', 'assignee', 'status', 'createdAt'];
+
+//validating that sortby includes either of the above fields from sortingAllowed Fields
+  if(!sortingAllowedFields.includes(sortBy)){
+    return res.status(400).json({
+      error: `Sort by should have either of the following fields ${sortingAllowedFields.join(", ")}`
+    })
+  }
 
   // checks if sorting field exists else default bu createdAt
-  const safeSortBy = sortingALlowedFields.includes(sortBy) ? sortBy : 'createdAt';
+  const safeSortBy = sortingAllowedFields.includes(sortBy) ? sortBy : 'createdAt';
 
 
   statusFilteredTickets.sort((a, b) => {
@@ -64,15 +76,29 @@ app.get('/api/tickets',(req,res)=>{
     if(valueA > valueB) {
       return sortOrder === 'asc' ? 1 : -1;
     }
-    
+
     return 0;
   });
 
    
 
-  //pagination
-  const page = parseInt(req.query.page) || 1;
-  const pageSize = parseInt(req.query.pageSize) || 5;
+  //Pagaination Logics
+  const page = req.query.page ? parseInt(req.query.page) :  1;
+  const pageSize = req.query.pageSize ? parseInt(req.query.pageSize) : 5;
+
+
+  //BE validations
+  if(page<1) {
+    return res.status(400).json({
+      error: "Page must be greater than or equal to 1"
+    })
+  }
+
+  if (pageSize < 1 || pageSize > 50) {
+    return res.status(400).json({
+      error : "PageSize must be between 1 to 50"
+    })
+  }
   
   const totalTickets = statusFilteredTickets.length;
   const totalPages = Math.ceil(totalTickets / pageSize);
